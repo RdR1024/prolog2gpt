@@ -14,7 +14,7 @@ This repository has the following structure:
 
 - `docs`  contains literature and additional documentation. A special subdirectory called `wiki` contains the source files for the separate github wiki repository (`github.com:RdR1024/prolog2gpt.wiki.git`).
 - `rel` contains the periodic releases of the library. Users should use this directory to download stable copies of library.
-- `src`	contains the source code, with various prototypes in subdirectories called "sketches". At some point, a prototype may become a "production" version (i.e. release with a version number), but the philosophy is one of continuous iterative prototyping.
+- `src`	contains the source code, with various prototypes in subdirectories called "sketches". At some point, a prototype may become a "production" version (i.e. release with a version number), but the philosophy is one of continuous iterative prototyping. The reason for separating prototypes into different directories and not just using git versioning, is to enable uncluttered, "back to the drawing board" major revisions.
    - `sketch001`   source code for the first prototype
       - `archive`  old material that we keep for reference
       - `test`     testing files for the prototype
