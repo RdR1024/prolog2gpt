@@ -8,3 +8,13 @@ Currently, there are interface libraries to GPT for Python and NodeJS, but not P
 
 # Current Status
 Pre-alpha: Work has only just started
+
+# Repository structure
+This repository has the following structure:
+
+- `docs`  contains literature and additional documentation. A special subdirectory called `wiki` contains the source files for the separate github wiki repository (`github.com:RdR1024/prolog2gpt.wiki.git`).
+- `rel` contains the periodic releases of the library. Users should use this directory to download stable copies of library.
+- `src`	contains the source code, with various prototypes in subdirectories called "sketches". At some point, a prototype may become a "production" version (i.e. release with a version number), but the philosophy is one of continuous iterative prototyping.
+   - `sketch001`   source code for the first prototype
+      - `archive`  old material that we keep for reference
+      - `test`     testing files for the prototype
