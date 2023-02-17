@@ -18,3 +18,14 @@ This repository has the following structure:
    - `sketch001`   source code for the first prototype
       - `archive`  old material that we keep for reference
       - `test`     testing files for the prototype
+
+# Documentation
+You can read the individual predicate comments in the source files (e.g. `prolog2gpt.pro`), or start the SWI-Prolog document server as follows:
+
+~~~
+:- doc_server(3000).
+:- portray_text(true).
+:- ['prolog2gpt.pro'].
+~~~
+
+This should launch a web browser with the documentation for the `prolog2gpt.pro` file.
