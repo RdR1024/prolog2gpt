@@ -18,9 +18,14 @@ test(init_key):-
 % check the availability of GPT models by checking for "text-davinci-003"
 test(models,[nondet]):-
     format('test "models"~n',[]),
-    gpt_models(Models),
-    Data=Models.data,
-    member(M,Data),
-    M.id="text-davinci-003".
+    gpt_models(json([_,data=Models|_])),
+    member(json([id='text-davinci-003'|_]),Models),
+    format('  text-davinci-003 is a model.~n',[]).
+
+% basic check of text completion
+test(completion01,[nondet]):-
+    format('test basic completion~n',[]),
+    gpt_completions('text-davinci-003','My favourite animal is ',Text,_,[]),
+    format('Resulting text: ~w~n',[Text]).
 
 :- end_tests(prolog2gpt).

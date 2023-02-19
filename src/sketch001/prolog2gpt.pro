@@ -28,15 +28,16 @@ The Prolog predicates are based on the OpenAI API Reference: https://platform.op
 */
 :- module(prolog2gpt,[
    init_gptkey/0,
-   gpt_models/1
+   gpt_models/1,
+   gpt_completions/5
     
 ]).
 :- use_module('file_path_name_ext.pro').
 :- use_module(library(http/http_open)).
 :- use_module(library(http/http_client)).
 :- use_module(library(http/http_ssl_plugin)).
+:- use_module(library(http/json)).
 :- use_module(library(http/http_json)).
-:- use_module(library(http/json_convert)).
 
 %% init_gptkey is semidet.
 %  Get the GPT API Key from the environment variable and create
@@ -55,45 +56,55 @@ init_gptkey:-
 %% gpt_models(-Models:json) is semidet.
 %  Get a list of the available GPT models
 %
-%  @arg Models    The list of models as a JSON dict
+%  @arg Models    The list of models as a JSON term
 %
 %  Example use:
 %  ~~~
 %  :- gpt_models(Models).
-%  Models = ...  % the JSON dict
+%  Models = ...  % the JSON term
 %  ~~~
 %
 gpt_models(Models):-
    current_prolog_flag(gptkey,Key),
    http_get('https://api.openai.com/v1/models',Models,
-            [authorization(bearer(Key)),application/json,json_object(dict)]).
+            [authorization(bearer(Key)),application/json]).
 
-%% gpt_completions(+Model:string, +Prompt:string, 
-%                  +Temperature:int, +MaxTokens:int, -Result:json) is semidet.
+%% gpt_completions(+Model:atom, +Prompt:atom, -Result:text, +Options:list) is semidet.
+%% gpt_completions(+Model:atom, +Prompt:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
 %  Get a prompted text completion from a GPT model
 %
 %  @arg Model        The GPT model name, e.g. "text-davinci-003"
 %  @arg Prompt       The prompt that GPT will complete
-%  @arg Temperature  GPT parameter that controls "randomness" of output.
-%                    Higher temperature means text will be more diverse, but
-%                    also risks more grammar mistakes and nonsense.
-%  @arg MaxTokens    The size of output. GPT-3 can theoretically return up
-%                    to 4096 tokens, but in practice less than half that.
-%                    One token is about 4 characters or 0.75 average word length.
+%  @arg Result       The text result, or json term with the result from GPT
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be the text result
+%  @arg Options      The model completion options as list of json pair values (see below)
+%
+%
+%  Options:
+%  * temperature=N     
+%    Controls "randomness" of output, with `0<=N<=1`.
+%    Higher temperature means text will be more diverse, but
+%    also risks more grammar mistakes and nonsense.
+%  * max_tokens=M    
+%    The size of output, where `M` is a natural number (incl. 0). 
+%    GPT-3 can theoretically return up to 4096 tokens, but in practice less than half that. 
+%    One token is about 4 characters or 0.75 average word length.
 %
 %  Example use:
 %  ~~~
-%  :- gpt_completions('text-davinci-003','My favourite animal is ', 0,10,Result),
-%     Choices = Result.choices, Choices=[C|_], Completion=C.text.
-%  Result = ... % the JSON result.
-%  Choices = ... % part of JSON result
-%  C = ... % JSON of first result
-%  Completion = "a dog"
+%  :- gpt_completions('text-davinci-003','My favourite animal is ',Result,_,[]),
+%  Result = "a dog"
 %  ~~~
 %
-gpt_completions(Model,Prompt,Temperature,MaxTokens,Result):-
+gpt_completions(Model,Prompt,Result,Options):- gpt_completions(Model,Prompt,Result,false,Options).
+gpt_completions(Model,Prompt,Result,Raw,Options):-
    current_prolog_flag(gptkey,Key),
-   format(atom(D),'{"model":"~w","prompt":"~w","temperature":~d,"max_tokens":~d}',[Model,Prompt,Temperature,MaxTokens]),
+   atom_json_term(D,json([model=Model,prompt=Prompt|Options]),[]),
    Data = atom(application/json,D),
-   http_post('https://api.openai.com/v1/completions',Data,Result,
-            [authorization(bearer(Key)),application/json,json_object(dict)]).
+   http_post('https://api.openai.com/v1/completions',Data,json(ReturnData),
+            [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> member((choices=[json([text=Result|_])|_]),ReturnData)
+   ;  Result= json(ReturnData)
+   ).
