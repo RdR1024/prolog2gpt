@@ -10,7 +10,8 @@
    gpt_images_edits/4, gpt_images_edits/5,
    gpt_images_variations/3, gpt_images_variations/4,
    gpt_embeddings/4, gpt_embeddings/5,
-   gpt_files/1, gpt_files/2
+   gpt_files/1, gpt_files/2,
+   gpt_files_upload/3, gpt_files_upload/4
 ]).
 /** <module> Prolog interface to GPT
 
@@ -495,6 +496,33 @@ gpt_files(Result):-
 gpt_files(Result,Raw):-
    current_prolog_flag(gptkey,Key),
    http_get('https://api.openai.com/v1/files',ReturnData,
+            [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> gpt_extract_data(data,filename,ReturnData,Result)
+   ;  Result= ReturnData
+   ).
+
+%% gpt_files_upload(+File:atom,+Purpose:text,-Result:list) is semidet.
+%% gpt_files(+File:atom,+Purpose:text,-Result:list,+Raw:boolean) is semidet.
+%  Upload a JSON Lines file (typically for fine-tuning)
+%
+%  Example use:
+%  ~~~
+%  :- gpt_files_upload('./test/tune_answer.jsonl','fine-tune',Result),
+%  Result = ['file-XjGxS3KTG0uNmNOK362iJua3']
+%  ~~~
+%
+%  @arg File         Filename to upload
+%  @arg Purpose      Purpose of the file. Currently only 'fine-tune'
+%  @arg Result       List of file names, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+gpt_files_upload(File,Purpose,Result):-
+   gpt_files_upload(File,Purpose,Result,false).
+gpt_files(File,Purpose,Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   Data = form_data([file=file(File),purpose=Purpose|Options]),
+   http_post('https://api.openai.com/v1/files',ReturnData,
             [authorization(bearer(Key)),application/json]),
    (  Raw=false
    -> gpt_extract_data(data,filename,ReturnData,Result)
