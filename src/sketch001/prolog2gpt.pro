@@ -6,9 +6,11 @@
    gpt_extract_fields/3,
    gpt_completions/4, gpt_completions/5,
    gpt_edits/4, gpt_edits/5,
-   gpt_files/1, gpt_files/2,
-   gpt_images_create/3, gpt_images_create/4
-   
+   gpt_images_create/3, gpt_images_create/4,
+   gpt_images_edits/4, gpt_images_edits/5,
+   gpt_images_variations/3, gpt_images_variations/4,
+   gpt_embeddings/4, gpt_embeddings/5,
+   gpt_files/1, gpt_files/2
 ]).
 /** <module> Prolog interface to GPT
 
@@ -313,32 +315,6 @@ gpt_edits(Model,Instruction,Result,Raw,Options):-
    ;  Result= ReturnData
    ).
 
-
-%% gpt_files(-Result:list) is semidet.
-%% gpt_files(-Result:list,+Raw:boolean) is semidet.
-%  List all files that belong to the user's organization.
-%
-%  Example use:
-%  ~~~
-%  :- gpt_files(Result),
-%  Result = ['puppy.png','hat.png']
-%  ~~~
-%
-%  @arg Result       List of file names, or json term (depending on `Raw`)
-%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
-%                    the Result will be a simple list of file names
-gpt_files(Result):-
-   gpt_files(Result,false).
-gpt_files(Result,Raw):-
-   current_prolog_flag(gptkey,Key),
-   http_get('https://api.openai.com/v1/files',ReturnData,
-            [authorization(bearer(Key)),application/json]),
-   (  Raw=false
-   -> gpt_extract_data(data,filename,ReturnData,Result)
-   ;  Result= ReturnData
-   ).
-
-
 %% gpt_images_create(+Prompt:atom, -Result:term, +Options:list) is semidet.
 %% gpt_images_create(+Prompt:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
 %  Create an image from a text prompt.
@@ -381,20 +357,67 @@ gpt_images_create(Prompt,Result,Raw,Options):-
    ;  Result= ReturnData
    ).
 
+%% gpt_images_edits(+Prompt:atom, -Result:term,+Options:list) is semidet.
 %% gpt_images_edits(+Prompt:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
 %  Modify an image from a text prompt.
 %
 %  Example use:
 %  ~~~
-%  :- gpt_images_edits('A cute baby sea otter with a hat',Result,_,[]),
+%  :- gpt_images_edits('A cute baby sea otter with a hat','./test/otter.png',Result,_,[]),
 %  Result = ['https://...'] % url of the resulting image
 %  ~~~
 %
 %  @arg Prompt       The prompt that GPT will complete
+%  @arg File         The path/filename of the image to edit
 %  @arg Result       The text result, or json term with the result from GPT
 %  @arg Raw          If `true` the Result will be the json term, if `false` (default)
 %                    the Result will be the (first) url or b64 result
-%  @arg Options      The edit options as list of json pair values (see below)
+%  @arg Options      The edit options as list of pair values (see below)
+%
+%
+%  Options (Note option descriptions are mostly from the GPT API reference -- see the https://platform.openai.com/docs/api-reference for up-to-date and further details):
+%  * n=N
+%    The number of images to generate. Defaults to 1.
+%  * size=Z
+%    The size of the image. Must be one of `'256x256'`, `'512x512'`, or `'1024x1024'`. 
+%    Default is `'1024x1024'`
+%  * mask
+%    An additional image whose fully transparent areas (e.g. where alpha is zero) 
+%    indicate where image should be edited. Must be a valid 
+%    PNG file, less than 4MB, and have the same dimensions as image.
+%  * response_format=S
+%    The format of the generated images. Must be one of `url` or `b64_json`. Default is `url`
+%  * user=S
+%    A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
+%
+gpt_images_edits(Prompt,Image,Result,Options):-
+   gpt_images_edits(Prompt,Image,Result,false,Options).
+gpt_images_edits(Prompt,Image,Result,Raw,Options):-
+   current_prolog_flag(gptkey,Key),
+   Data = form_data([prompt=Prompt,image=file(Image)|Options]),
+   http_post('https://api.openai.com/v1/images/edits',Data,ReturnData,
+            [authorization(bearer(Key)),application/json]),
+   ( member(response_format=Format,Options) -> true ; Format=url ),
+   (  Raw=false
+   -> gpt_extract_data(data,Format,ReturnData,Result)
+   ;  Result= ReturnData
+   ).
+
+%% gpt_images_variations(+File:atom, -Result:term,+Options:list) is semidet.
+%% gpt_images_variations(+File:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
+%  Produce variation(s) of an image.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_images_variations('./test/otter.png',Result,_,[]),
+%  Result = ['https://...'] % url of the resulting image
+%  ~~~
+%
+%  @arg Image        The path/filename of image to vary
+%  @arg Result       The text result, or json term with the result from GPT
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be the (first) url or b64 result
+%  @arg Options      The edit options as list of pair values (see below)
 %
 %
 %  Options (Note option descriptions are mostly from the GPT API reference -- see the https://platform.openai.com/docs/api-reference for up-to-date and further details):
@@ -408,15 +431,13 @@ gpt_images_create(Prompt,Result,Raw,Options):-
 %  * user=S
 %    A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
 %
-% TODO: gpt_files to upload image file, and maybe mask file, before gpt_image_edits is called
-gpt_images_edits(Prompt,Image,Result,Options):-
-   gpt_images_edits(Prompt,Image,Result,false,Options).
-gpt_images_edits(Prompt,Image,Result,Raw,Options):-
+gpt_images_variations(Image,Result,Options):-
+   gpt_images_variations(Image,Result,false,Options).
+
+gpt_images_variations(Image,Result,Raw,Options):-
    current_prolog_flag(gptkey,Key),
-   % TODO: check that image file exists? or just let it fail on the GPT side
-   atom_json_term(D,json([prompt=Prompt,image=Image|Options]),[]),
-   Data = atom(application/json,D),
-   http_post('https://api.openai.com/v1/images/edits',Data,ReturnData,
+   Data = form_data([image=file(Image)|Options]),
+   http_post('https://api.openai.com/v1/images/variations',Data,ReturnData,
             [authorization(bearer(Key)),application/json]),
    ( member(response_format=Format,Options) -> true ; Format=url ),
    (  Raw=false
@@ -424,7 +445,62 @@ gpt_images_edits(Prompt,Image,Result,Raw,Options):-
    ;  Result= ReturnData
    ).
 
-% TODO: gpt_images_variations 
+%% gpt_embeddings(+Input:text,-Result:list) is semidet.
+%% gpt_embeddings(+Input:text,-Result:list,+Raw:boolean) is semidet.
+%  Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_embeddings('text-embedding-ada-002','The food was delicious',Result),
+%  Result = [0.0023064255,-0.009327292,...]
+%  ~~~
+%
+%  @arg Input        Atom, string, or list of such
+%  @arg Result       List of file names, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+%  Options (Note option descriptions are mostly from the GPT API reference -- see the https://platform.openai.com/docs/api-reference for up-to-date and further details):
+%  * user=S
+%    A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
+%
+gpt_embeddings(Model,Input,Result,Options):-
+   gpt_embeddings(Model,Input,Result,false,Options),!.
+gpt_embeddings(Model,Input,Result,Raw,Options):-
+   current_prolog_flag(gptkey,Key),
+   atom_json_term(D,json([model=Model,input=Input|Options]),[]),
+   Data = atom(application/json,D),
+   http_post('https://api.openai.com/v1/embeddings',Data,ReturnData,
+            [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> gpt_extract_data(data,embedding,ReturnData,Result)
+   ;  Result= ReturnData
+   ).
+
+
+%% gpt_files(-Result:list) is semidet.
+%% gpt_files(-Result:list,+Raw:boolean) is semidet.
+%  List all files that belong to the user's organization.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_files(Result),
+%  Result = ['puppy.png','hat.png']
+%  ~~~
+%
+%  @arg Result       List of file names, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+gpt_files(Result):-
+   gpt_files(Result,false).
+gpt_files(Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   http_get('https://api.openai.com/v1/files',ReturnData,
+            [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> gpt_extract_data(data,filename,ReturnData,Result)
+   ;  Result= ReturnData
+   ).
+
 
 
 % TODO: gpt_embeddings 

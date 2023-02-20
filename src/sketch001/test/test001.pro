@@ -47,4 +47,22 @@ test(image_create01,[nondet]):-
     gpt_images_create('A cute baby sea otter',Result,[]),
     format('Image url: ~w~n',Result).
 
+% basic check of image edit
+test(image_edit01,[nondet]):-
+    format('test image edit~n',[]),
+    gpt_images_edits('A cartoon otter with a hat','./test/otter.png',Result,[]),
+    format('Image url: ~w~n',Result).
+
+% basic check of image variation
+test(image_variation01,[nondet]):-
+    format('test image variation~n',[]),
+    gpt_images_variations('./test/otter.png',Result,[]),
+    format('Image url: ~w~n',Result).
+
+% basic check of text embeddings
+test(edits01,[nondet]):-
+    format('test basic embeddings~n',[]),
+    gpt_embeddings('text-embedding-ada-002','The food was delicious',Text,[]),
+    format('Resulting text: ~w~n',Text).
+
 :- end_tests(prolog2gpt).
