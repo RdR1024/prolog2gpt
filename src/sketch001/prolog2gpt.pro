@@ -267,8 +267,11 @@ gpt_edits(Model,Instruction,Result,Raw,Options):-
    ;  Result= json(ReturnData)
    ).
 
+% TODO: gpt_files
+
+%% gpt_images_create(+Prompt:atom, -Result:term, +Options:list) is semidet.
 %% gpt_images_create(+Prompt:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
-%  Get a prompted text completion from a GPT model.
+%  Create an image from a text prompt.
 %
 %  Example use:
 %  ~~~
@@ -306,3 +309,54 @@ gpt_images_create(Prompt,Result,Raw,Options):-
    -> member((data=[json([url=Result|_])|_]),ReturnData)
    ;  Result= json(ReturnData)
    ).
+
+%% gpt_images_edits(+Prompt:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
+%  Modify an image from a text prompt.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_images_edits('A cute baby sea otter with a hat',Result,_,[]),
+%  Result = "https://..." % url of the resulting image
+%  ~~~
+%
+%  @arg Prompt       The prompt that GPT will complete
+%  @arg Result       The text result, or json term with the result from GPT
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be the (first) url or b64 result
+%  @arg Options      The edit options as list of json pair values (see below)
+%
+%
+%  Options (Note option descriptions are mostly from the GPT API reference -- see the https://platform.openai.com/docs/api-reference for up-to-date and further details):
+%  * n=N
+%    The number of images to generate. Defaults to 1.
+%  * size=Z
+%    The size of the image. Must be one of `'256x256'`, `'512x512'`, or `'1024x1024'`. 
+%    Default is `'1024x1024'`
+%  * response_format=S
+%    The format of the generated images. Must be one of `url` or `b64_json`. Default is `url`
+%  * user=S
+%    A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
+%
+% TODO: gpt_files to upload image file, and maybe mask file, before gpt_image_edits is called
+gpt_images_edits(Prompt,Image,Result,Options):-
+   gpt_images_edits(Prompt,Image,Result,false,Options).
+gpt_images_edits(Prompt,Image,Result,Raw,Options):-
+   current_prolog_flag(gptkey,Key),
+   % TODO: check that image file exists? or just let it fail on the GPT side
+   atom_json_term(D,json([prompt=Prompt,image=Image|Options]),[]),
+   Data = atom(application/json,D),
+   http_post('https://api.openai.com/v1/images/edits',Data,json(ReturnData),
+            [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> member((data=[json([url=Result|_])|_]),ReturnData)
+   ;  Result= json(ReturnData)
+   ).
+
+% TODO: gpt_images_variations 
+
+
+% TODO: gpt_embeddings 
+% TODO: gpt_fine_tunes
+% TODO: gpt_moderations
+
+

@@ -46,7 +46,6 @@ test(edits01,[nondet]):-
 test(image_create01,[nondet]):-
     format('test image creation~n',[]),
     gpt_images_create('A cute baby sea otter',Result,[]),
-%    format('Image url: ~w~n',[Result]),
-    doc_browser(Result).
+    format('Image url: ~w~n',[Result]).
 
 :- end_tests(prolog2gpt).
