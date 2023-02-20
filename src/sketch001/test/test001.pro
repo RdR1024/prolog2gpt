@@ -22,10 +22,16 @@ test(models,[nondet]):-
     member(json([id='text-davinci-003'|_]),Models),
     format('  text-davinci-003 is a model.~n',[]).
 
+% get the details of a named model
+test(a_model):-
+    format('test getting model details~n',[]),
+    gpt_models('text-davinci-003',Details),
+    format('text-davinci-003 details:~n~w~n',[Details]).
+
 % basic check of text completion
 test(completion01,[nondet]):-
     format('test basic completion~n',[]),
-    gpt_completions('text-davinci-003','My favourite animal is ',Text,_,[]),
+    gpt_completions('text-davinci-003','My favourite animal is ',Text,[]),
     format('Resulting text: ~w~n',[Text]).
 
 :- end_tests(prolog2gpt).

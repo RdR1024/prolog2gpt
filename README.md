@@ -23,9 +23,10 @@ This repository has the following structure:
 You can read the individual predicate comments in the source files (e.g. `prolog2gpt.pro`), or start the SWI-Prolog document server as follows:
 
 ~~~
-:- doc_server(3000).
+:- doc_server(3030).
 :- portray_text(true).
 :- ['prolog2gpt.pro'].
+:- doc_server.
 ~~~
 
 This should launch a web browser with the documentation for the `prolog2gpt.pro` file.
