@@ -1,14 +1,14 @@
 :- module(prolog2gpt,[
    init_gptkey/0,
-   gpt_models/1,
-   gpt_models/2,
-   gpt_completions/4,
-   gpt_completions/5,
-   gpt_edits/4,
-   gpt_edits/5,
-   gpt_images_create/3,
-   gpt_images_create/4
-    
+   gpt_models/1, gpt_models/2,
+   gpt_models_detail/2, 
+   gpt_extract_data/4,
+   gpt_extract_fields/3,
+   gpt_completions/4, gpt_completions/5,
+   gpt_edits/4, gpt_edits/5,
+   gpt_files/1, gpt_files/2,
+   gpt_images_create/3, gpt_images_create/4
+   
 ]).
 /** <module> Prolog interface to GPT
 
@@ -62,23 +62,31 @@ init_gptkey:-
    getenv('GPTKEY',Key),
    create_prolog_flag(gptkey,Key,[type(atom)]).
 
-%% gpt_models(-Models:json) is semidet.
+%% gpt_models(-Models:list) is semidet.
+%% gpt_models(-Models:json,+Raw:boolean) is semidet.
 %  Get a list of the available GPT models
 %
 %  Example use:
 %  ~~~
 %  :- gpt_models(Models).
-%  Models = ...  % the JSON term
+%  Models = [babbage,davinci,...]
 %  ~~~
 %
-%  @arg Models    The list of models as a JSON term
+%  @arg Models    The list of model names, or JSON term with model details
+%  @arg Raw       If `true` then Models is the raw json result, else Models is a list of model names
 %
-gpt_models(Models):-
+gpt_models(Models):- gpt_models(Models,false).
+gpt_models(Models,Raw):-
    current_prolog_flag(gptkey,Key),
-   http_get('https://api.openai.com/v1/models',Models,
-            [authorization(bearer(Key)),application/json]).
+   http_get('https://api.openai.com/v1/models',Ms,
+            [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> gpt_extract_data(data,id,Ms,Models)
+   ;  Models=Ms
+   ).
 
-%% gpt_models(+Model:atom, -ModelDetails:json) is semidet.
+
+%% gpt_models_detail(+Model:atom, -ModelDetails:json) is semidet.
 %  Get the details of a particular model
 %
 %  Example use:
@@ -92,12 +100,49 @@ gpt_models(Models):-
 %                 For example, use `'text-davinci-003'`
 %  @arg Details   The details of the model as a JSON term
 %
-gpt_models(Model,Details):-
+gpt_models_detail(Model,Details):-
    current_prolog_flag(gptkey,Key),
    atomic_concat('https://api.openai.com/v1/models/',Model,URL),
    http_get(URL,Details,[authorization(bearer(Key)),application/json]).
 
 
+%% gpt_extract_data(+Group:atom,+Fielname:atom,+Data:json,-Result:list) is semidet.
+%  Extract a list of field data from a gpt json structure.  Note: this predicate
+%  makes some simple assumptions about how GPT API result data is structured.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_models(Ms,true), gpt_extract_data(data,id,Ms,Models).
+%  Models = ["babbage","text-davinci-001",...]
+%  ~~~
+%
+%  @arg Group     The GPT data group name. e.g. `data`, `choices`,...
+%  @arg Fieldname The name of the field whose data we want
+%  @arg Data      The json data list from the GPT API, that contains one or more field values
+%  @arg Result    The resulting list of data values
+gpt_extract_data(Group,Fieldname,json(Data),Result):-
+   member(Group=Fieldlist,Data),
+   gpt_extract_fields(Fieldname,Fieldlist,Result).
+
+%% gpt_extract_fields(+Fieldname:atom,+Data:json,-Result:list) is semidet.
+%  Extract a list of field data from a gpt json structure.  Note: this predicate
+%  makes some simple assumptions about how GPT API result data is structured.
+%
+%  Example use:
+%  ~~~
+%  :- Data=[json([id="babbage",object="model"]),json([id='text-davinci-001',object="model"])], gpt_extract_data(data,id,Ms,Models).
+%  Models = ["babbage","text-davinci-001"]
+%  ~~~
+%
+%  @arg Fieldname The name of the field whose data we want
+%  @arg Data      The list with json data from the GPT API, that contains one or more field values
+%  @arg Result    The resulting list of data values
+gpt_extract_fields(_,[],[]):-!.
+gpt_extract_fields(Fieldname,[json(Fields)|Fs],[R|Results]):-
+   (member(Fieldname=R,Fields);true),!,
+   gpt_extract_fields(Fieldname,Fs,Results).
+
+            
 %% gpt_completions(+Model:atom, +Prompt:atom, -Result:text, +Options:list) is semidet.
 %% gpt_completions(+Model:atom, +Prompt:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
 %  Get a prompted text completion from a GPT model.
@@ -105,7 +150,7 @@ gpt_models(Model,Details):-
 %  Example use:
 %  ~~~
 %  :- gpt_completions('text-davinci-003','My favourite animal is ',Result,_,[]),
-%  Result = "a dog"
+%  Result = ['a dog']
 %  ~~~
 %
 %  @arg Model        The GPT model name, Note: put names that end with numeric suffixes in 
@@ -196,22 +241,23 @@ gpt_models(Model,Details):-
 %    A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
 %
 gpt_completions(Model,Prompt,Result,Options):- 
-   gpt_completions(Model,Prompt,Result,false,Options).
+   gpt_completions(Model,Prompt,Result,false,Options),!.
 
 gpt_completions(Model,Prompt,Result,Raw,Options):-
    current_prolog_flag(gptkey,Key),
    atom_json_term(D,json([model=Model,prompt=Prompt|Options]),[]),
    Data = atom(application/json,D),
-   http_post('https://api.openai.com/v1/completions',Data,json(ReturnData),
+   http_post('https://api.openai.com/v1/completions',Data,ReturnData,
             [authorization(bearer(Key)),application/json]),
    (  Raw=false
-   -> member((choices=[json([text=Result|_])|_]),ReturnData)
-   ;  Result= json(ReturnData)
+   -> gpt_extract_data(choices,text,ReturnData,Result)
+   ;  Result= ReturnData
    ).
 
 %% gpt_edits(+Model:atom, +Instruction:atom, -Result:text, +Options:list) is semidet.
 %% gpt_edits(+Model:atom, +Instruction:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
-%  Get a new edit for a given model, input and instruction.  Note: Only for the 'text-davinci-edit-001' or 'code-davinci-edit-001' models.
+%  Get a new edit for a given model, input and instruction.  
+%  Note: Only for the 'text-davinci-edit-001' or 'code-davinci-edit-001' models.
 %
 %  Example use:
 %  ~~~
@@ -254,20 +300,44 @@ gpt_completions(Model,Prompt,Result,Raw,Options):-
 %    considered.  Use this, or `temperature`, but not both.
 %    Defaults to 1.
 gpt_edits(Model,Instruction,Result,Options):- 
-   gpt_edits(Model,Instruction,Result,false,Options).
+   gpt_edits(Model,Instruction,Result,false,Options),!.
 
 gpt_edits(Model,Instruction,Result,Raw,Options):-
    current_prolog_flag(gptkey,Key),
    atom_json_term(D,json([model=Model,instruction=Instruction|Options]),[]),
    Data = atom(application/json,D),
-   http_post('https://api.openai.com/v1/edits',Data,json(ReturnData),
+   http_post('https://api.openai.com/v1/edits',Data,ReturnData,
             [authorization(bearer(Key)),application/json]),
    (  Raw=false
-   -> member((choices=[json([text=Result|_])|_]),ReturnData)
-   ;  Result= json(ReturnData)
+   -> gpt_extract_data(choices,text,ReturnData,Result)
+   ;  Result= ReturnData
    ).
 
-% TODO: gpt_files
+
+%% gpt_files(-Result:list) is semidet.
+%% gpt_files(-Result:list,+Raw:boolean) is semidet.
+%  List all files that belong to the user's organization.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_files(Result),
+%  Result = ['puppy.png','hat.png']
+%  ~~~
+%
+%  @arg Result       List of file names, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+gpt_files(Result):-
+   gpt_files(Result,false).
+gpt_files(Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   http_get('https://api.openai.com/v1/files',ReturnData,
+            [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> gpt_extract_data(data,filename,ReturnData,Result)
+   ;  Result= ReturnData
+   ).
+
 
 %% gpt_images_create(+Prompt:atom, -Result:term, +Options:list) is semidet.
 %% gpt_images_create(+Prompt:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
@@ -276,7 +346,7 @@ gpt_edits(Model,Instruction,Result,Raw,Options):-
 %  Example use:
 %  ~~~
 %  :- gpt_images_create('A cute baby sea otter',Result,_,[]),
-%  Result = "https://..." % url of the resulting image
+%  Result = ['https://...'] % url of the resulting image
 %  ~~~
 %
 %  @arg Prompt       The prompt that GPT will complete
@@ -303,11 +373,12 @@ gpt_images_create(Prompt,Result,Raw,Options):-
    current_prolog_flag(gptkey,Key),
    atom_json_term(D,json([prompt=Prompt|Options]),[]),
    Data = atom(application/json,D),
-   http_post('https://api.openai.com/v1/images/generations',Data,json(ReturnData),
+   http_post('https://api.openai.com/v1/images/generations',Data,ReturnData,
             [authorization(bearer(Key)),application/json]),
+   ( member(response_format=Format,Options) -> true ; Format=url ),
    (  Raw=false
-   -> member((data=[json([url=Result|_])|_]),ReturnData)
-   ;  Result= json(ReturnData)
+   -> gpt_extract_data(data,Format,ReturnData,Result)
+   ;  Result= ReturnData
    ).
 
 %% gpt_images_edits(+Prompt:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
@@ -316,7 +387,7 @@ gpt_images_create(Prompt,Result,Raw,Options):-
 %  Example use:
 %  ~~~
 %  :- gpt_images_edits('A cute baby sea otter with a hat',Result,_,[]),
-%  Result = "https://..." % url of the resulting image
+%  Result = ['https://...'] % url of the resulting image
 %  ~~~
 %
 %  @arg Prompt       The prompt that GPT will complete
@@ -345,11 +416,12 @@ gpt_images_edits(Prompt,Image,Result,Raw,Options):-
    % TODO: check that image file exists? or just let it fail on the GPT side
    atom_json_term(D,json([prompt=Prompt,image=Image|Options]),[]),
    Data = atom(application/json,D),
-   http_post('https://api.openai.com/v1/images/edits',Data,json(ReturnData),
+   http_post('https://api.openai.com/v1/images/edits',Data,ReturnData,
             [authorization(bearer(Key)),application/json]),
+   ( member(response_format=Format,Options) -> true ; Format=url ),
    (  Raw=false
-   -> member((data=[json([url=Result|_])|_]),ReturnData)
-   ;  Result= json(ReturnData)
+   -> gpt_extract_data(data,Format,ReturnData,Result)
+   ;  Result= ReturnData
    ).
 
 % TODO: gpt_images_variations 
