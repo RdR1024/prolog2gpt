@@ -34,4 +34,19 @@ test(completion01,[nondet]):-
     gpt_completions('text-davinci-003','My favourite animal is ',Text,[]),
     format('Resulting text: ~w~n',[Text]).
 
+% basic check of text edit
+test(edits01,[nondet]):-
+    format('test basic edits~n',[]),
+    gpt_edits('text-davinci-edit-001','Fix spelling mistakes',Text,
+        [   input='What day of the wek is it?'
+        ]),
+    format('Resulting text: ~w~n',[Text]).
+
+% basic check of image generation
+test(image_create01,[nondet]):-
+    format('test image creation~n',[]),
+    gpt_images_create('A cute baby sea otter',Result,[]),
+%    format('Image url: ~w~n',[Result]),
+    doc_browser(Result).
+
 :- end_tests(prolog2gpt).
