@@ -14,7 +14,9 @@
    gpt_files/1, gpt_files/2,
    gpt_files_upload/4, gpt_files_upload/5,
    gpt_files_delete/2, gpt_files_delete/3,
-   gpt_files_retrieve/2, gpt_files_retrieve/3
+   gpt_files_retrieve/2, gpt_files_retrieve/3,
+   gpt_files_retrieve_content/2, gpt_files_retrieve_content/3,
+   gpt_moderations/3
 ]).
 /** <module> Prolog interface to GPT
 
@@ -535,7 +537,7 @@ gpt_files(Result,Raw):-
    ).
 
 %% gpt_files_upload(+File:atom,+Purpose:text,-Result:list) is semidet.
-%% gpt_files(+File:atom,+Purpose:text,-Result:list,+Raw:boolean) is semidet.
+%% gpt_files_upload(+File:atom,+Purpose:text,-Result:list,+Raw:boolean) is semidet.
 %  Upload a JSON Lines file (typically for fine-tuning)
 %
 %  Example use:
@@ -588,8 +590,8 @@ gpt_files_delete(FileID,Result,Raw):-
    ;  Result= json(ReturnData)
    ).
 
-%% gpt_files_retrieve(+FileID:atom,+Purpose:text,-Result:list) is semidet.
-%% gpt_files_retrieve(+FileID:atom,+Purpose:text,-Result:list,+Raw:boolean) is semidet.
+%% gpt_files_retrieve(+FileID:atom,-Result:list) is semidet.
+%% gpt_files_retrieve(+FileID:atom,-Result:list,+Raw:boolean) is semidet.
 %  Retrieve a (user) file details
 %
 %  Example use:
@@ -614,9 +616,52 @@ gpt_files_retrieve(FileID,Result,Raw):-
    ;  Result= json(ReturnData)
    ).
 
+%% gpt_files_retrieve_content(+FileID:atom,+Purpose:text,-Result:list) is semidet.
+%% gpt_files_retrieve(+FileID:atom,+Purpose:text,-Result:list,+Raw:boolean) is semidet.
+%  Retrieve a (user) file details
+%
+%  Example use:
+%  ~~~
+%  :- gpt_files_retrieve('file-XjGxS3KTG0uNmNOK362iJua3',Result),
+%  Result = ['myfile.jsonl']
+%  ~~~
+%
+%  @arg FileID       File ID of file in GPT storage to retrieve
+%  @arg Result       List with file name, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+gpt_files_retrieve_content(FileID,Result):-
+   gpt_files_retrieve_content(FileID,Result,false),!.
+gpt_files_retrieve_content(FileID,Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   atomic_list_concat(['https://api.openai.com/v1/files/',FileID,'/content'],URL),
+   http_get(URL,ReturnData, [authorization(bearer(Key))]),
+   (  Raw=false
+   -> (member(filename=File,ReturnData), Result=[File])
+   ;  Result= ReturnData
+   ).
+
 
 
 % TODO: gpt_fine_tunes
-% TODO: gpt_moderations
+
+
+%% gpt_moderations(+Model:atom,+Input:text,-Result:list,+Options:list) is semidet.
+%  Given a input text, outputs if the model classifies it as violating OpenAI's content policy.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_moderations('Some text is not fine',Result),
+%  Result = ... % JSON result
+%  ~~~
+%
+%  @arg Input        Text to test for content policy violation
+%  @arg Result       JSON structure with policy scores
+gpt_moderations(Input,Result,Options):-
+   current_prolog_flag(gptkey,Key), 
+   atom_json_term(D,json([model=Model,input=Input|Options]),[]),
+   Data = atom(application/json,D),
+   http_post('https://api.openai.com/v1/moderations',Data,Result,
+            [authorization(bearer(Key)),application/json]).
 
 
