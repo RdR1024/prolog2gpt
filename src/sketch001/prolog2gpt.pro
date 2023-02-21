@@ -750,26 +750,24 @@ gpt_fine_tunes(TrainingFile,Result,Raw,Options):-
    ;  Result= json(ReturnData)
    ).
 
-%% gpt_files_fine-tunes(-Result:list) is semidet.
-%% gpt_files_fine-tunes(-Result:list,+Raw:boolean) is semidet.
-%  fine-tunes a (user) file details
+%% gpt_fine-tunes(-Result:list) is semidet.
+%% gpt_fine-tunes(-Result:list,+Raw:boolean) is semidet.
+%  Gets a list of fine-tunes jobs.
 %
 %  Example use:
 %  ~~~
-%  :- gpt_files_fine-tunes(Result),
-%  Result = ['myfile.jsonl']
+%  :- gpt_fine-tunes(Result),
+%  Result = ['ft-090asf0asf0',...]
 %  ~~~
 %
-%  @arg FileID       File ID of file in GPT storage to retrieve
 %  @arg Result       List with file name, or json term (depending on `Raw`)
 %  @arg Raw          If `true` the Result will be the json term, if `false` (default)
 %                    the Result will be a simple list of file names
-gpt_files_fine-tunes(FileID,Result):-
-   gpt_files_fine-tunes(FileID,Result,false),!.
-gpt_files_fine-tunes(FileID,Result,Raw):-
+gpt_fine-tunes(Result):-
+   gpt_fine-tunes(Result,false),!.
+gpt_fine-tunes(Result,Raw):-
    current_prolog_flag(gptkey,Key),
-   atomic_concat('https://api.openai.com/v1/files/',FileID,URL),
-   http_get(URL,json(ReturnData),
+   http_get('https://api.openai.com/v1/fine-tunes',ReturnData,
       [authorization(bearer(Key)),application/json]),
    (  Raw=false
    -> (member(filename=File,ReturnData), Result=[File])
