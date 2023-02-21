@@ -16,6 +16,7 @@
    gpt_files_delete/2, gpt_files_delete/3,
    gpt_files_retrieve/2, gpt_files_retrieve/3,
    gpt_files_retrieve_content/2, gpt_files_retrieve_content/3,
+   gpt_fine_tunes/3, gpt_fine_tunes/4,
    gpt_moderations/3, gpt_moderations/4
 ]).
 /** <module> Prolog interface to GPT
@@ -122,7 +123,7 @@ gpt_models_detail(Model,Details):-
 %  Example use:
 %  ~~~
 %  :- gpt_models(Ms,true), gpt_extract_data(data,id,Ms,Models).
-%  Models = ["babbage","text-davinci-001",...]
+%  Models = ['babbage','text-davinci-001',...]
 %  ~~~
 %
 %  @arg Group     The GPT data group name. e.g. `data`, `choices`,...
@@ -139,8 +140,8 @@ gpt_extract_data(Group,Fieldname,json(Data),Result):-
 %
 %  Example use:
 %  ~~~
-%  :- Data=[json([id="babbage",object="model"]),json([id='text-davinci-001',object="model"])], gpt_extract_data(data,id,Data,Models).
-%  Models = ["babbage","text-davinci-001"]
+%  :- Data=[json([id='babbage',object='model']),json([id='text-davinci-001',object='model'])], gpt_extract_data(data,id,Data,Models).
+%  Models = ['babbage','text-davinci-001']
 %  ~~~
 %
 %  @arg Fieldname The name of the field whose data we want
@@ -271,7 +272,7 @@ gpt_extract_field_pairs(Field1,Field2,[json(Fields)|Fs],Results):-
 %    increase likelihood of selection; values like -100 or 100 should result in a ban or 
 %    exclusive selection of the relevant token.
 %
-%    As an example, you can pass `json("50256": -100)` to prevent the `<|endoftext|>` token 
+%    As an example, you can pass `json('50256': -100)` to prevent the `<|endoftext|>` token 
 %    from being generated.
 %  * user=S
 %    A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
@@ -300,7 +301,7 @@ gpt_completions(Model,Prompt,Result,Raw,Options):-
 %  :- gpt_edit('text-davinci-001','Fix the spelling mistakes',Result,_,
 %              [  input='What day of the wek is it?'
 %              ]),
-%  Result = "What day of the week is it?"
+%  Result = 'What day of the week is it?'
 %  ~~~
 %
 %  @arg Model        The GPT model name, Note: put names that end with numeric suffixes in 
@@ -631,6 +632,7 @@ gpt_files_retrieve(FileID,Result,Raw):-
 %  @arg Result       List with file name, or json term (depending on `Raw`)
 %  @arg Raw          If `true` the Result will be the json term, if `false` (default)
 %                    the Result will be a simple list of file names
+% TODO: ***** this API doesn't work for some reason *****
 gpt_files_retrieve_content(FileID,Result):-
    gpt_files_retrieve_content(FileID,Result,false),!.
 gpt_files_retrieve_content(FileID,Result,Raw):-
@@ -644,7 +646,136 @@ gpt_files_retrieve_content(FileID,Result,Raw):-
 
 
 
-% TODO: gpt_fine_tunes
+%% gpt_fine_tunes(+TrainingFile:text,-Result:list) is semidet.
+%% gpt_fine_tunes(+TrainingFile:text,-Result:list,+Raw:boolean) is semidet.
+%  Get a vector representation of a given TrainingFile that can be easily consumed by machine learning models and algorithms.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_fine_tunes('file-XGinujblHPwGLSztz8cPS8XY',Result),
+%  Result = ['ft-AF1WoRqd3aJAHsqc9NY7iL8F']
+%  ~~~
+%
+%  @arg TrainingFile Atom with the GPT file ID of an uploaded file
+%  @arg Result       Fine-tuned request event in list, or json term of details (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+%  Options (Note option descriptions are mostly from the GPT API reference -- see the https://platform.openai.com/docs/api-reference for up-to-date and further details):
+%  * validation_file=F
+%    The ID of an uploaded file that contains validation data.
+%
+%    If you provide this file, the data is used to generate validation 
+%    metrics periodically during fine-tuning. These metrics can be viewed 
+%    in the fine-tuning results file. Your train and validation data should 
+%    be mutually exclusive.
+%
+%    Your dataset must be formatted as a JSONL file, where each validation 
+%    example is a JSON object with the keys "prompt" and "completion". 
+%    Additionally, you must upload your file with the purpose fine-tune.
+%  * model=M
+%    The name of the base model to fine-tune. You can select one of 'ada', 
+%    'babbage', 'curie', 'davinci', or a fine-tuned model created after 
+%    2022-04-21. To learn more about these models, see the Models documentation.
+%    Defaults to 'curie'.
+%  * n_epochs=N
+%    The number of epochs to train the model for. An epoch refers to one full 
+%    cycle through the training dataset. Defaults to 4.
+%  * batch_size=N
+%    The batch size to use for training. The batch size is the number of 
+%    training examples used to train a single forward and backward pass.
+%
+%    By default, the batch size will be dynamically configured to be ~0.2% 
+%    of the number of examples in the training set, capped at 256 - in 
+%    general, we've found that larger batch sizes tend to work better for 
+%    larger datasets. Defaults to `null`.
+%  * learning_rate_multiplier=N
+%    The learning rate multiplier to use for training. The fine-tuning 
+%    learning rate is the original learning rate used for pretraining 
+%    multiplied by this value.
+%
+%    By default, the learning rate multiplier is the 0.05, 0.1, or 0.2 
+%    depending on final batch_size (larger learning rates tend to perform 
+%    better with larger batch sizes). We recommend experimenting with 
+%    values in the range 0.02 to 0.2 to see what produces the best results.
+%    Defaults to `null`.
+%  * prompt_loss_weight=N
+%    The weight to use for loss on the prompt tokens. This controls how 
+%    much the model tries to learn to generate the prompt (as compared to 
+%    the completion which always has a weight of 1.0), and can add a 
+%    stabilizing effect to training when completions are short.
+%
+%    If prompts are extremely long (relative to completions), it may make 
+%    sense to reduce this weight so as to avoid over-prioritizing learning 
+%    the prompt. Defaults to `0.01`
+%  * compute_classification_metrics=B
+%    If set, we calculate classification-specific metrics such as accuracy 
+%    and F-1 score using the validation set at the end of every epoch. 
+%    These metrics can be viewed in the results file.
+%
+%    In order to compute classification metrics, you must provide a 
+%    validation_file. Additionally, you must specify classification_n_classes 
+%    for multiclass classification or classification_positive_class for 
+%    binary classification. Defaults to `false`
+%  * classification_n_classes=N
+%    The number of classes in a classification task. This parameter is 
+%    required for multiclass classification. Defaults to `null`.
+%  * classification_positive_class=S
+%    The positive class in binary classification. This parameter is needed 
+%    to generate precision, recall, and F1 metrics when doing binary 
+%    classification. Defaults to `null`.
+%  * classification_betas=List
+%    If this is provided, we calculate F-beta scores at the specified beta 
+%    values. The F-beta score is a generalization of F-1 score. This is only 
+%    used for binary classification.
+%
+%    With a beta of 1 (i.e. the F-1 score), precision and recall are given 
+%    the same weight. A larger beta score puts more weight on recall and 
+%    less on precision. A smaller beta score puts more weight on precision 
+%    and less on recall. Defaults to `null`.
+%  * suffix=S
+%    A string of up to 40 characters that will be added to your fine-tuned 
+%    model name. For example, a suffix of "custom-model-name" would produce 
+%    a model name like `ada:ft-your-org:custom-model-name-2022-02-15-04-21-04`.
+%
+gpt_fine_tunes(TrainingFile,Result,Options):-
+   gpt_fine_tunes(TrainingFile,Result,false,Options),!.
+gpt_fine_tunes(TrainingFile,Result,Raw,Options):-
+   current_prolog_flag(gptkey,Key),
+   atom_json_term(D,json([training_file=TrainingFile|Options]),[]),
+   Data = atom(application/json,D),
+   http_post('https://api.openai.com/v1/fine-tunes',Data,json(ReturnData),
+            [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> member(id=Result,ReturnData)
+   ;  Result= json(ReturnData)
+   ).
+
+%% gpt_files_fine-tunes(-Result:list) is semidet.
+%% gpt_files_fine-tunes(-Result:list,+Raw:boolean) is semidet.
+%  fine-tunes a (user) file details
+%
+%  Example use:
+%  ~~~
+%  :- gpt_files_fine-tunes(Result),
+%  Result = ['myfile.jsonl']
+%  ~~~
+%
+%  @arg FileID       File ID of file in GPT storage to retrieve
+%  @arg Result       List with file name, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+gpt_files_fine-tunes(FileID,Result):-
+   gpt_files_fine-tunes(FileID,Result,false),!.
+gpt_files_fine-tunes(FileID,Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   atomic_concat('https://api.openai.com/v1/files/',FileID,URL),
+   http_get(URL,json(ReturnData),
+      [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> (member(filename=File,ReturnData), Result=[File])
+   ;  Result= json(ReturnData)
+   ).
+
 
 
 %% gpt_moderations(+Model:atom,+Input:text,-Result:list,+Options:list) is semidet.
