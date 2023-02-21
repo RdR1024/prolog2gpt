@@ -16,7 +16,11 @@
    gpt_files_delete/2, gpt_files_delete/3,
    gpt_files_retrieve/2, gpt_files_retrieve/3,
    gpt_files_retrieve_content/2, gpt_files_retrieve_content/3,
-   gpt_fine_tunes/3, gpt_fine_tunes/4,
+   gpt_fine_tunes/1,gpt_fine_tunes/2,gpt_fine_tunes/3, gpt_fine_tunes/4,
+   gpt_fine_tunes_detail/2, gpt_fine_tunes_detail/3,
+   gpt_fine_tunes_cancel/2, gpt_fine_tunes_cancel/3,
+   gpt_fine_tunes_events/2, gpt_fine_tunes_events/3,
+   gpt_fine_tunes_delete/2, gpt_fine_tunes_delete/3,
    gpt_moderations/3, gpt_moderations/4
 ]).
 /** <module> Prolog interface to GPT
@@ -750,30 +754,143 @@ gpt_fine_tunes(TrainingFile,Result,Raw,Options):-
    ;  Result= json(ReturnData)
    ).
 
-%% gpt_fine-tunes(-Result:list) is semidet.
-%% gpt_fine-tunes(-Result:list,+Raw:boolean) is semidet.
+%% gpt_fine_tunes(-Result:list) is semidet.
+%% gpt_fine_tunes(-Result:list,+Raw:boolean) is semidet.
 %  Gets a list of fine-tunes jobs.
 %
 %  Example use:
 %  ~~~
 %  :- gpt_fine-tunes(Result),
-%  Result = ['ft-090asf0asf0',...]
+%  Result = ['curie:ft-personal-2022-02-15-04-21-04'-'ft-090asf0asf0',...]
 %  ~~~
 %
 %  @arg Result       List with file name, or json term (depending on `Raw`)
 %  @arg Raw          If `true` the Result will be the json term, if `false` (default)
 %                    the Result will be a simple list of file names
-gpt_fine-tunes(Result):-
-   gpt_fine-tunes(Result,false),!.
-gpt_fine-tunes(Result,Raw):-
+gpt_fine_tunes(Result):-
+   gpt_fine_tunes(Result,false),!.
+gpt_fine_tunes(Result,Raw):-
    current_prolog_flag(gptkey,Key),
-   http_get('https://api.openai.com/v1/fine-tunes',ReturnData,
+   http_get('https://api.openai.com/v1/fine-tunes',json(ReturnData),
       [authorization(bearer(Key)),application/json]),
    (  Raw=false
-   -> (member(filename=File,ReturnData), Result=[File])
+   -> (  member(data=Models,ReturnData),
+         gpt_extract_field_pairs(fine_tuned_model,id,Models,Result)
+      )
    ;  Result= json(ReturnData)
    ).
 
+%% gpt_fine_tunes_detail(+ID:atom,-Result:list) is semidet.
+%% gpt_fine_tunes_detail(+ID:atom,-Result:list,+Raw:boolean) is semidet.
+%  Gets details of a fine-tunes job.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_fine_tunes_detail('ft-090asf0asf0',Result),
+%  Result = ['curie:ft-personal-2022-02-15-04-21-04']
+%  ~~~
+%
+%  @arg Result       List with file name, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+gpt_fine_tunes_detail(ID,Result):-
+   gpt_fine_tunes_detail(ID,Result,false),!.
+gpt_fine_tunes_detail(ID,Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   atomic_concat('https://api.openai.com/v1/fine-tunes/',ID,URL),
+   http_get(URL,json(ReturnData),
+      [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> (  member(fine_tuned_model=TunedModel,ReturnData),
+         Result=[TunedModel]
+      )
+   ;  Result= json(ReturnData)
+   ).
+
+%% gpt_fine_tunes_cancel(+ID:atom,-Result:list) is semidet.
+%% gpt_fine_tunes_cancel(+ID:atom,-Result:list,+Raw:boolean) is semidet.
+%  Cancel a fine-tunes job.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_fine_tunes_cancel([_-ID]),(ID,Result),
+%  Result = ['curie:ft-personal-2022-02-15-04-21-04']
+%  ~~~
+%
+%  @arg ID           ID of the fine-tunes job
+%  @arg Result       List with file name, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+% TODO: ***** DOES NOT WORK **** something to do with post without data?
+gpt_fine_tunes_cancel(ID,Result):-
+   gpt_fine_tunes_cancel(ID,Result,false),!.
+gpt_fine_tunes_cancel(ID,Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   atomic_list_concat(['https://api.openai.com/v1/fine-tunes/',ID,'/cancel'],URL),
+   http_post(URL,[],json(ReturnData),
+      [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> (  member(fine_tuned_model=TunedModel,ReturnData),
+         Result=[TunedModel]
+      )
+   ;  Result= json(ReturnData)
+   ).
+
+%% gpt_fine_tunes_events(+ID:atom,-Result:list) is semidet.
+%% gpt_fine_tunes_events(+ID:atom,-Result:list,+Raw:boolean) is semidet.
+%  List events of a fine-tunes job.
+%
+%  Example use:
+%  ~~~
+%  :- gpt_fine_tunes_events([_-ID]),(ID,Result),
+%  Result = ['curie:ft-personal-2022-02-15-04-21-04']
+%  ~~~
+%
+%  @arg ID           ID of the fine-tunes job
+%  @arg Result       List with file name, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+% TODO: ***** DOES NOT WORK **** something to do with post without data?
+gpt_fine_tunes_events(ID,Result):-
+   gpt_fine_tunes_events(ID,Result,false),!.
+gpt_fine_tunes_events(ID,Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   atomic_list_concat(['https://api.openai.com/v1/fine-tunes/',ID,'/events'],URL),
+   http_get(URL,json(ReturnData),
+      [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> (  member(fine_tuned_model=TunedModel,ReturnData),
+         Result=[TunedModel]
+      )
+   ;  Result= json(ReturnData)
+   ).
+
+%% gpt_fine_tunes_delete(+ID:atom,-Result:list) is semidet.
+%% gpt_fine_tunes_delete(+ID:atom,-Result:list,+Raw:boolean) is semidet.
+%  Delete a fine-tunes job from GPT storage
+%
+%  Example use:
+%  ~~~
+%  :- gpt_fine_tunes([_-ID]),gpt_fine_tunes_delete(ID,Result),
+%  Result = ['ft-XjGxS3KTG0uNmNOK362iJua3']
+%  ~~~
+%
+%  @arg ID       File ID of file in GPT storage to delete
+%  @arg Purpose  Purpose of the file. Currently only 'fine-tune'
+%  @arg Result   List of file names, or json term (depending on `Raw`)
+%  @arg Raw      If `true` the Result will be the json term, if `false` (default)
+%                the Result will be a simple list of file names
+gpt_fine_tunes_delete(ID,Result):-
+   gpt_fine_tunes_delete(ID,Result,false),!.
+gpt_fine_tunes_delete(ID,Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   atomic_concat('https://api.openai.com/v1/models/',ID,URL),
+   http_delete(URL,json(ReturnData),
+      [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> (member(id=ID,ReturnData), Result=[ID])
+   ;  Result= json(ReturnData)
+   ).
 
 
 %% gpt_moderations(+Model:atom,+Input:text,-Result:list,+Options:list) is semidet.
@@ -782,7 +899,8 @@ gpt_fine-tunes(Result,Raw):-
 %  Example use:
 %  ~~~
 %  :- gpt_moderations('I want to kill them',Result),
-%  Result = [sexual=false, hate=false, violence=true, 'self-harm'=false, 'sexual/minors'=false, 'hate/threatening'=false, 'violence/graphic'=false].
+%  Result = [sexual=false, hate=false, violence=true, 'self-harm'=false, 
+%  'sexual/minors'=false, 'hate/threatening'=false, 'violence/graphic'=false].
 %  ~~~
 %
 %  @arg Input        Text to test for content policy violation
