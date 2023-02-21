@@ -31,7 +31,7 @@ $ git clone https://github.com/RdR1024/prolog2gpt
 Then `cd` into prolog2gpt/src and launch `swipl` and try the following:
 
 ~~~
-:- ['prolog2gpt'].
+:- ['prolog2gpt.pro'].
 :- init_gptkey.  % this makes the gpt key available to the gpt api predicates
 :- gpt_completions('text-davinci-003','My favourite animal is ',Text,[max_tokens=30]).
 
@@ -47,7 +47,7 @@ For example, `gpt_completions(Model,Prompt,Result,Options)` will return a Prolog
 # Repository structure
 This repository has the following structure:
 
-- `docs`  contains literature and additional documentation. A special subdirectory called `wiki` contains the source files for the separate github wiki repository (`github.com:RdR1024/prolog2gpt.wiki.git`).
+- `docs`  contains literature and additional documentation. A special subdirectory called `wiki` contains the source files for the separate github wiki repository (`github.com:RdR1024/prolog2gpt.wiki.git`). Note: I haven't populated this yet.
 - `rel` contains the periodic releases of the library. Users should use this directory to download stable copies of library.
 - `src`	contains the source code.
    - `archive`  old material that we keep for reference
