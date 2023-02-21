@@ -16,7 +16,7 @@
    gpt_files_delete/2, gpt_files_delete/3,
    gpt_files_retrieve/2, gpt_files_retrieve/3,
    gpt_files_retrieve_content/2, gpt_files_retrieve_content/3,
-   gpt_moderations/3
+   gpt_moderations/3, gpt_moderations/4
 ]).
 /** <module> Prolog interface to GPT
 
@@ -53,6 +53,7 @@ The Prolog predicates are based on the OpenAI API Reference: https://platform.op
 :- use_module(library(http/http_ssl_plugin)).
 :- use_module(library(http/json)).
 :- use_module(library(http/http_json)).
+:- use_module(library(http/json_convert)).
 
 %% init_gptkey is semidet.
 %  Get the GPT API Key from the environment variable named `GPTKEY` and create
@@ -651,17 +652,26 @@ gpt_files_retrieve_content(FileID,Result,Raw):-
 %
 %  Example use:
 %  ~~~
-%  :- gpt_moderations('Some text is not fine',Result),
+%  :- gpt_moderations('I want to kill them',Result),
 %  Result = ... % JSON result
 %  ~~~
 %
 %  @arg Input        Text to test for content policy violation
 %  @arg Result       JSON structure with policy scores
 gpt_moderations(Input,Result,Options):-
+   gpt_moderations(Input,Result,false,Options).
+gpt_moderations(Input,Result,Raw,Options):-
    current_prolog_flag(gptkey,Key), 
-   atom_json_term(D,json([model=Model,input=Input|Options]),[]),
+   atom_json_term(D,json([input=Input|Options]),[]),
    Data = atom(application/json,D),
-   http_post('https://api.openai.com/v1/moderations',Data,Result,
-            [authorization(bearer(Key)),application/json]).
+   http_post('https://api.openai.com/v1/moderations',Data,ReturnData,
+            [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> (  gpt_extract_data(results,categories,ReturnData,[json(R)]),
+         maplist(json_pair_boolean,R,Result)
+      )
+   ;  Result= ReturnData
+   ).
 
-
+json_pair_boolean(Name='@'(Boolean),Name=Boolean):-!.
+json_pair_boolean(Name=Val,Name=Val):-!.
