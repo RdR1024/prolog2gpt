@@ -4,6 +4,7 @@
    gpt_models_detail/2, 
    gpt_extract_data/4,
    gpt_extract_fields/3,
+   gpt_extract_field_pairs/4,
    gpt_completions/4, gpt_completions/5,
    gpt_edits/4, gpt_edits/5,
    gpt_images_create/3, gpt_images_create/4,
@@ -11,7 +12,9 @@
    gpt_images_variations/3, gpt_images_variations/4,
    gpt_embeddings/4, gpt_embeddings/5,
    gpt_files/1, gpt_files/2,
-   gpt_files_upload/3, gpt_files_upload/4
+   gpt_files_upload/4, gpt_files_upload/5,
+   gpt_files_delete/2, gpt_files_delete/3,
+   gpt_files_retrieve/2, gpt_files_retrieve/3
 ]).
 /** <module> Prolog interface to GPT
 
@@ -133,7 +136,7 @@ gpt_extract_data(Group,Fieldname,json(Data),Result):-
 %
 %  Example use:
 %  ~~~
-%  :- Data=[json([id="babbage",object="model"]),json([id='text-davinci-001',object="model"])], gpt_extract_data(data,id,Ms,Models).
+%  :- Data=[json([id="babbage",object="model"]),json([id='text-davinci-001',object="model"])], gpt_extract_data(data,id,Data,Models).
 %  Models = ["babbage","text-davinci-001"]
 %  ~~~
 %
@@ -141,9 +144,36 @@ gpt_extract_data(Group,Fieldname,json(Data),Result):-
 %  @arg Data      The list with json data from the GPT API, that contains one or more field values
 %  @arg Result    The resulting list of data values
 gpt_extract_fields(_,[],[]):-!.
-gpt_extract_fields(Fieldname,[json(Fields)|Fs],[R|Results]):-
-   (member(Fieldname=R,Fields);true),!,
-   gpt_extract_fields(Fieldname,Fs,Results).
+gpt_extract_fields(Fieldname,[json(Fields)|Fs],Results):-
+   (  member(Fieldname=R,Fields)
+   -> Results=[R|Res]
+   ;  Results=Res
+   ),
+   gpt_extract_fields(Fieldname,Fs,Res).
+
+%% gpt_extract_field_pairs(+Field1:atom,+Field2:atom,+Data:json,-Result:list) is semidet.
+%  Extract a list of field pairs from a gpt json structure.  Note: this predicate
+%  makes some simple assumptions about how GPT API result data is structured.
+%
+%  Example use:
+%  ~~~
+%  :- Data=[json([id='123',filename=file1]),json([id='345',filename=file2])], gpt_extract_field_pairs(filename,id,Data,FieldPairs).
+%  FieldPairs = [file1-'123',file2-'345']
+%  ~~~
+%
+%  @arg Fieldname The name of the field whose data we want
+%  @arg Data      The list with json data from the GPT API, that contains one or more field values
+%  @arg Result    The resulting list of data values
+gpt_extract_field_pairs(_,_,[],[]):-!.
+gpt_extract_field_pairs(Field1,Field2,[json(Fields)|Fs],Results):-
+   (  member(Field1=F1,Fields)
+      -> (  member(Field2=F2,Fields)
+         -> Results = [F1-F2|Res]
+         ;  Results = Res
+         )
+      ;  Results = Res
+   ),!,
+  gpt_extract_field_pairs(Field1,Field2,Fs,Res).
 
             
 %% gpt_completions(+Model:atom, +Prompt:atom, -Result:text, +Options:list) is semidet.
@@ -485,21 +515,23 @@ gpt_embeddings(Model,Input,Result,Raw,Options):-
 %  Example use:
 %  ~~~
 %  :- gpt_files(Result),
-%  Result = ['puppy.png','hat.png']
+%  Result = ['file1.jsonl'-'file-12345','file2.jsonl'-'file-56789']
 %  ~~~
 %
-%  @arg Result       List of file names, or json term (depending on `Raw`)
+%  @arg Result       List of Filename-ID pairs, or json term (depending on `Raw`)
 %  @arg Raw          If `true` the Result will be the json term, if `false` (default)
 %                    the Result will be a simple list of file names
 gpt_files(Result):-
    gpt_files(Result,false).
 gpt_files(Result,Raw):-
    current_prolog_flag(gptkey,Key),
-   http_get('https://api.openai.com/v1/files',ReturnData,
+   http_get('https://api.openai.com/v1/files',json(ReturnData),
             [authorization(bearer(Key)),application/json]),
    (  Raw=false
-   -> gpt_extract_data(data,filename,ReturnData,Result)
-   ;  Result= ReturnData
+   -> (  member(data=Files,ReturnData),
+         gpt_extract_field_pairs(filename,id,Files,Result)
+      )
+   ;  Result= json(ReturnData)
    ).
 
 %% gpt_files_upload(+File:atom,+Purpose:text,-Result:list) is semidet.
@@ -517,21 +549,73 @@ gpt_files(Result,Raw):-
 %  @arg Result       List of file names, or json term (depending on `Raw`)
 %  @arg Raw          If `true` the Result will be the json term, if `false` (default)
 %                    the Result will be a simple list of file names
-gpt_files_upload(File,Purpose,Result):-
-   gpt_files_upload(File,Purpose,Result,false).
-gpt_files(File,Purpose,Result,Raw):-
-   current_prolog_flag(gptkey,Key),
+gpt_files_upload(File,Purpose,Result,Options):-
+   gpt_files_upload(File,Purpose,Result,false,Options),!.
+gpt_files_upload(File,Purpose,Result,Raw,Options):-
+   current_prolog_flag(gptkey,Key), 
    Data = form_data([file=file(File),purpose=Purpose|Options]),
-   http_post('https://api.openai.com/v1/files',ReturnData,
+   http_post('https://api.openai.com/v1/files',Data,json(ReturnData),
             [authorization(bearer(Key)),application/json]),
    (  Raw=false
-   -> gpt_extract_data(data,filename,ReturnData,Result)
-   ;  Result= ReturnData
+   -> (member(id=ID,ReturnData),Result=[ID])
+   ;  Result= json(ReturnData)
+   ).
+
+%% gpt_files_delete(+FileID:atom,+Purpose:text,-Result:list) is semidet.
+%% gpt_files_delete(+FileID:atom,+Purpose:text,-Result:list,+Raw:boolean) is semidet.
+%  Delete a (user) file from GPT storage
+%
+%  Example use:
+%  ~~~
+%  :- gpt_files_delete('file-XjGxS3KTG0uNmNOK362iJua3',Result),
+%  Result = ['file-XjGxS3KTG0uNmNOK362iJua3']
+%  ~~~
+%
+%  @arg FileID       File ID of file in GPT storage to delete
+%  @arg Purpose      Purpose of the file. Currently only 'fine-tune'
+%  @arg Result       List of file names, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+gpt_files_delete(FileID,Result):-
+   gpt_files_delete(FileID,Result,false),!.
+gpt_files_delete(FileID,Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   atomic_concat('https://api.openai.com/v1/files/',FileID,URL),
+   http_delete(URL,json(ReturnData),
+      [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> (member(id=ID,ReturnData), Result=[ID])
+   ;  Result= json(ReturnData)
+   ).
+
+%% gpt_files_retrieve(+FileID:atom,+Purpose:text,-Result:list) is semidet.
+%% gpt_files_retrieve(+FileID:atom,+Purpose:text,-Result:list,+Raw:boolean) is semidet.
+%  Retrieve a (user) file details
+%
+%  Example use:
+%  ~~~
+%  :- gpt_files_retrieve('file-XjGxS3KTG0uNmNOK362iJua3',Result),
+%  Result = ['myfile.jsonl']
+%  ~~~
+%
+%  @arg FileID       File ID of file in GPT storage to retrieve
+%  @arg Result       List with file name, or json term (depending on `Raw`)
+%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
+%                    the Result will be a simple list of file names
+gpt_files_retrieve(FileID,Result):-
+   gpt_files_retrieve(FileID,Result,false),!.
+gpt_files_retrieve(FileID,Result,Raw):-
+   current_prolog_flag(gptkey,Key),
+   atomic_concat('https://api.openai.com/v1/files/',FileID,URL),
+   http_get(URL,json(ReturnData),
+      [authorization(bearer(Key)),application/json]),
+   (  Raw=false
+   -> (member(filename=File,ReturnData), Result=[File])
+   ;  Result= json(ReturnData)
    ).
 
 
 
-% TODO: gpt_embeddings 
 % TODO: gpt_fine_tunes
 % TODO: gpt_moderations
 

@@ -65,4 +65,17 @@ test(edits01,[nondet]):-
     gpt_embeddings('text-embedding-ada-002','The food was delicious',Text,[]),
     format('Resulting text: ~w~n',Text).
 
+% basic check of file upload, list, details, and delete
+test(upload01,[nondet]):-
+    format('test file upload~n',[]),
+    gpt_files_upload('./test/tune_answer.jsonl','fine-tune',[ID],[]),
+    format('File ID: ~w~n',[ID]),
+    gpt_files_retrieve(ID,R,true),
+    format('File details: ~w~n',[R]),
+    gpt_files(List),
+    format('File list: ~w~n',[List]),
+    gpt_files_delete(ID,RDel),
+    format('File deleted: ~w~n',RDel).
+
+
 :- end_tests(prolog2gpt).
