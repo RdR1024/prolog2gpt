@@ -77,5 +77,10 @@ test(upload01,[nondet]):-
     gpt_files_delete(ID,RDel),
     format('File deleted: ~w~n',RDel).
 
+% basic check of moderations
+test(moderations,[nondet]):-
+    format('test moderations~n',[]),
+    gpt_moderations('I want to kill them',R,[]),
+    format('Moderation result: ~w~n',[R]).
 
 :- end_tests(prolog2gpt).

@@ -653,7 +653,7 @@ gpt_files_retrieve_content(FileID,Result,Raw):-
 %  Example use:
 %  ~~~
 %  :- gpt_moderations('I want to kill them',Result),
-%  Result = ... % JSON result
+%  Result = [sexual=false, hate=false, violence=true, 'self-harm'=false, 'sexual/minors'=false, 'hate/threatening'=false, 'violence/graphic'=false].
 %  ~~~
 %
 %  @arg Input        Text to test for content policy violation
