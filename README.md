@@ -13,25 +13,37 @@ Most of the API is working and you can access GPT with simple prolog predicates.
 
 # Install
 
-Easiest is to clone the repo. I'm assuming you have the latest version of SWI-Prolog installed.
-
-Also (Important), make sure your GPT API key is set in the environment variable `GPTKEY`. Do this:
+First, make sure your GPT API key is set in the environment variable `GPTKEY`. Do this:
 
 1. Create your GPT account at https://platform.openai.com
 2. Create an API key at https://platform.openai.com/account/api-keys and, as instructed, save that key
    somewhere (e.g. in a text file in a secure folder).
 3. Set an environment variable called `GPTKEY` to the key value (don't forget in Linux that if you added the environment variable to your bash startup script, e.g. `~/.bashrc`, then you need to `source` your `~/.bashrc` script to activate the new environment variable).
 
-Next, download the source code:
+Next, there are two ways to install.
+
+Firstly, as a pack from within Prolog, and using it as a library module
+
+~~~
+:- pack_install('prolog2gpt').
+:- use_module(library(prolog2gpt)).
+
+% Now test that the pack installed and execute a first call to GPT
+:- init_gptkey.
+:- gpt_completions('text-davinci-03','Say hello',Answer,[]).
+
+~~~
+
+Otherwise, you can also just clone the git repository.
 
 ~~~
 $ git clone https://github.com/RdR1024/prolog2gpt
 ~~~
 
-Then `cd` into prolog2gpt/src and launch `swipl` and try the following:
+Then `cd` into `prolog2gpt/src/prolog and launch`, execute `swipl` and try the following:
 
 ~~~
-:- ['prolog2gpt.pro'].
+:- [prolog2gpt].
 :- init_gptkey.  % this makes the gpt key available to the gpt api predicates
 :- gpt_completions('text-davinci-003','My favourite animal is ',Text,[max_tokens=30]).
 
@@ -47,11 +59,12 @@ For example, `gpt_completions(Model,Prompt,Result,Options)` will return a Prolog
 # Repository structure
 This repository has the following structure:
 
-- `docs`  contains literature and additional documentation. A special subdirectory called `wiki` contains the source files for the separate github wiki repository (`github.com:RdR1024/prolog2gpt.wiki.git`). Note: I haven't populated this yet.
-- `rel` contains the periodic releases of the library. Users should use this directory to download stable copies of library.
-- `src`	contains the source code.
-   - `archive`  old material that we keep for reference
-   - `test`     testing files for the prototype
+- `docs`     contains literature and additional documentation. A special subdirectory called `wiki` contains the source files for the separate github wiki repository (`github.com:RdR1024/prolog2gpt.wiki.git`). Note: I haven't populated this yet.
+- `rel` 	    contains the periodic releases of the library. Users should use this directory to download stable copies of library.
+- `src`	    contains the source code.
+  - `prolog` contains the prolog source code
+- `archive`  old material that we keep for reference
+- `test`     testing files for the source code
 
 
 # Documentation

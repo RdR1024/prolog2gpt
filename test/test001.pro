@@ -5,7 +5,7 @@
 %  See the SWI-Prolog documentation for Prolog Unit Tests
 
 :- begin_tests(prolog2gpt).
-:- use_module('../prolog2gpt.pro').
+:- use_module('../src/prolog/prolog2gpt.pro').
 
 % check that the GPT key is obtainable from the environment
 % Note: run this test before all others, so that the key is initialized
@@ -50,13 +50,13 @@ test(image_create01,[nondet]):-
 % basic check of image edit
 test(image_edit01,[nondet]):-
     format('test image edit~n',[]),
-    gpt_images_edits('A cartoon otter with a hat','./test/otter.png',Result,[]),
+    gpt_images_edits('A cartoon otter with a hat','./otter.png',Result,[]),
     format('Image url: ~w~n',Result).
 
 % basic check of image variation
 test(image_variation01,[nondet]):-
     format('test image variation~n',[]),
-    gpt_images_variations('./test/otter.png',Result,[]),
+    gpt_images_variations('./otter.png',Result,[]),
     format('Image url: ~w~n',Result).
 
 % basic check of text embeddings
@@ -68,7 +68,7 @@ test(edits01,[nondet]):-
 % basic check of file upload, list, details, and delete
 test(upload01,[nondet]):-
     format('test file upload~n',[]),
-    gpt_files_upload('./test/tune_answer.jsonl','fine-tune',[ID],[]),
+    gpt_files_upload('./tune_answer.jsonl','fine-tune',[ID],[]),
     format('File ID: ~w~n',[ID]),
     gpt_files_retrieve(ID,R,true),
     format('File details: ~w~n',[R]),
