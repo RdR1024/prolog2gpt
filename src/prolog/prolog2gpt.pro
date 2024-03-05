@@ -281,18 +281,20 @@ gpt_extract_field_pairs(Field1,Field2,[json(Fields)|Fs],Results):-
 %  * user=S
 %    A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
 %
-gpt_completions(Model,Prompt,Result,Options):- 
-   gpt_completions(Model,Prompt,Result,false,Options),!.
+gpt_completions(Model, Prompt, Result, Options):- 
+   gpt_completions(Model, Prompt, Result, false, Options),!.
 
-gpt_completions(Model,Prompt,Result,Raw,Options):-
+gpt_completions(Model, Prompt, Result, Raw, Options):-
    current_prolog_flag(gptkey,Key),
-   atom_json_term(D,json([model=Model,prompt=Prompt|Options]),[]),
-   Data = atom(application/json,D),
-   http_post('https://api.openai.com/v1/completions',Data,ReturnData,
-            [authorization(bearer(Key)),application/json]),
-   (  Raw=false
-   -> gpt_extract_data(choices,text,ReturnData,Result)
-   ;  Result= ReturnData
+   atom_json_term(D,json([model = Model, messages = [json([role = user, content = Prompt])] | Options]),[]),
+   
+   Data = atom(application/json, D),
+   nl, print(Data), nl,
+   http_post('https://api.openai.com/v1/chat/completions', Data, ReturnData,
+            [authorization(bearer(Key)), application/json]),
+   (  Raw = false
+   -> gpt_extract_data(choices, text, ReturnData, Result)
+   ;  Result = ReturnData
    ).
 
 %% gpt_edits(+Model:atom, +Instruction:atom, -Result:text, +Options:list) is semidet.
