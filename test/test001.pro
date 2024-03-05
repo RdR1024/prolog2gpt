@@ -36,15 +36,7 @@ test(completion01,[nondet]):-
 % basic check of text completion
 test(completion02,[nondet]):-
     format('test basic completion~n',[]),
-    gpt_completions('gpt-3.5-turbo','My favourite animal is ',Text, true, []),
-    format('Resulting text: ~w~n',Text).
-
-% basic check of text edit
-test(edits01,[nondet]):-
-    format('test basic edits~n',[]),
-    gpt_edits('text-davinci-edit-001','Fix spelling mistakes',Text,
-        [   input='What day of the wek is it?'
-        ]),
+    gpt_completions('gpt-3.5-turbo','My favourite animal is ',Text, []),
     format('Resulting text: ~w~n',Text).
 
 % basic check of image generation
