@@ -134,9 +134,9 @@ gpt_models_detail(Model,Details):-
 %  @arg Fieldname The name of the field whose data we want
 %  @arg Data      The json data list from the GPT API, that contains one or more field values
 %  @arg Result    The resulting list of data values
-gpt_extract_data(Group,Fieldname,json(Data),Result):-
-   member(Group=Fieldlist,Data),
-   gpt_extract_fields(Fieldname,Fieldlist,Result).
+gpt_extract_data(Group, Fieldname, json(Data), Result):-
+   member(Group=Fieldlist, Data),
+   gpt_extract_fields(Fieldname, Fieldlist, Result).
 
 %% gpt_extract_fields(+Fieldname:atom,+Data:json,-Result:list) is semidet.
 %  Extract a list of field data from a gpt json structure.  Note: this predicate
@@ -286,74 +286,16 @@ gpt_completions(Model, Prompt, Result, Options):-
 
 gpt_completions(Model, Prompt, Result, Raw, Options):-
    current_prolog_flag(gptkey,Key),
-   atom_json_term(D,json([model = Model, messages = [json([role = user, content = Prompt])] | Options]),[]),
    
+   atom_json_term(D,json([model = Model, messages = [json([role = user, content = Prompt])] | Options]),[]),
    Data = atom(application/json, D),
-   nl, print(Data), nl,
+
    http_post('https://api.openai.com/v1/chat/completions', Data, ReturnData,
             [authorization(bearer(Key)), application/json]),
    (  Raw = false
-   -> gpt_extract_data(choices, text, ReturnData, Result)
+   -> (  gpt_extract_data(choices, message, ReturnData, [json(Message)]),
+         member(content = Result, Message))
    ;  Result = ReturnData
-   ).
-
-%% gpt_edits(+Model:atom, +Instruction:atom, -Result:text, +Options:list) is semidet.
-%% gpt_edits(+Model:atom, +Instruction:atom, -Result:term, ?Raw:boolean,+Options:list) is semidet.
-%  Get a new edit for a given model, input and instruction.  
-%  Note: Only for the 'text-davinci-edit-001' or 'code-davinci-edit-001' models.
-%
-%  Example use:
-%  ~~~
-%  :- gpt_edit('text-davinci-001','Fix the spelling mistakes',Result,_,
-%              [  input='What day of the wek is it?'
-%              ]),
-%  Result = 'What day of the week is it?'
-%  ~~~
-%
-%  @arg Model        The GPT model name, Note: put names that end with numeric suffixes in 
-%                    single quotes, to avoid the numeric being treated as a number. 
-%                    For example, use `'text-davinci-003'`
-%  @arg Instruction  The natural language editing instruction.
-%  @arg Result       The text result, or json term with the result from GPT
-%  @arg Raw          If `true` the Result will be the json term, if `false` (default)
-%                    the Result will be the (first) text result
-%  @arg Options      The edit options as list of json pair values (see below)
-%
-%
-%  Options (Note option descriptions are mostly from the GPT API reference -- see the https://platform.openai.com/docs/api-reference for up-to-date and further details):
-%  * input=S
-%    An atom of text (S) that the model needs to edit. Default=''
-%  * max_tokens=M    
-%    The size of output, where `M` is a natural number (incl. 0).
-%    GPT-3 can theoretically return up to 4096 tokens, but in practice less than half that. 
-%    One token is about 4 characters or 0.75 average word length. Defaults to 16.
-%  * n=N
-%    The number of completions (e.g. Results) to generate for each
-%    prompt. Defaults to 1.
-%  * temperature=N     
-%    Controls "randomness" of output, with `0<=N<=2`. Defaults to 1.
-%    Higher temperature means text will be more diverse, but
-%    also risks more grammar mistakes and nonsense. Recommended to
-%    change either this or `top_p`, but not both.
-%  * top_p
-%    An alternative to sampling with `temperature`, called
-%    nucleus sampling, where the model considers the results
-%    of the tokens with `top_p` probability mass. So 0.1 means
-%    only the tokens comprising the top 10% probability mass are
-%    considered.  Use this, or `temperature`, but not both.
-%    Defaults to 1.
-gpt_edits(Model,Instruction,Result,Options):- 
-   gpt_edits(Model,Instruction,Result,false,Options),!.
-
-gpt_edits(Model,Instruction,Result,Raw,Options):-
-   current_prolog_flag(gptkey,Key),
-   atom_json_term(D,json([model=Model,instruction=Instruction|Options]),[]),
-   Data = atom(application/json,D),
-   http_post('https://api.openai.com/v1/edits',Data,ReturnData,
-            [authorization(bearer(Key)),application/json]),
-   (  Raw=false
-   -> gpt_extract_data(choices,text,ReturnData,Result)
-   ;  Result= ReturnData
    ).
 
 %% gpt_images_create(+Prompt:atom, -Result:term, +Options:list) is semidet.
