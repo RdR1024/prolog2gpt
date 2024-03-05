@@ -6,7 +6,6 @@
    gpt_extract_fields/3,
    gpt_extract_field_pairs/4,
    gpt_completions/4, gpt_completions/5,
-   gpt_edits/4, gpt_edits/5,
    gpt_images_create/3, gpt_images_create/4,
    gpt_images_edits/4, gpt_images_edits/5,
    gpt_images_variations/3, gpt_images_variations/4,
