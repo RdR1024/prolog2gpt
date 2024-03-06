@@ -1,5 +1,5 @@
 %  A Prolog test suite.
-%  Load this file as usual (e.g. [test001]) and then
+%  Load this file as usual (e.g. ['test001.pro']) and then
 %  `:- run_tests.`
 %
 %  See the SWI-Prolog documentation for Prolog Unit Tests
@@ -24,21 +24,19 @@ test(models,[nondet]):-
 % get the details of a named model
 test(a_model):-
     format('test getting model details~n',[]),
-    gpt_models('text-davinci-003',Details),
-    format('text-davinci-003 details:~n~w~n',[Details]).
+    gpt_models_detail('gpt-4',Details),
+    format('gpt-4 details:~n~w~n',[Details]).
 
-% basic check of text completion
+% basic check of text completion, no response parsing
 test(completion01,[nondet]):-
-    format('test basic completion~n',[]),
-    gpt_completions('text-davinci-003','My favourite animal is ',Text,[]),
+    format('test basic completion without response parsing~n',[]),
+    gpt_completions('gpt-3.5-turbo','My favourite animal is ',Text, true, []),
     format('Resulting text: ~w~n',Text).
 
-% basic check of text edit
-test(edits01,[nondet]):-
-    format('test basic edits~n',[]),
-    gpt_edits('text-davinci-edit-001','Fix spelling mistakes',Text,
-        [   input='What day of the wek is it?'
-        ]),
+% basic check of text completion
+test(completion02,[nondet]):-
+    format('test basic completion~n',[]),
+    gpt_completions('gpt-3.5-turbo','My favourite animal is ',Text, []),
     format('Resulting text: ~w~n',Text).
 
 % basic check of image generation
